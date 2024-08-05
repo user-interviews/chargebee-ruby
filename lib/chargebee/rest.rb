@@ -40,14 +40,15 @@ module ChargeBee
         :headers => headers,
         :payload => payload,
         :open_timeout => env.connect_timeout,
-        :timeout => env.read_timeout
+        :timeout => env.read_timeout,
+        :raw_response => true
         }.merge(ssl_opts)
 
       begin
         response = RestClient::Request.execute(opts)
       rescue RestClient::ExceptionWithResponse => e
-        if rcode = e.http_code and rbody = e.http_body
-          raise handle_for_error(e, rcode, rbody)
+        if rcode = e.http_code
+          raise handle_for_error(e, rcode)
         else
           raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}", e)
         end
@@ -73,7 +74,7 @@ module ChargeBee
       return resp, rheaders
     end
 
-    def self.handle_for_error(e, rcode=nil, rbody=nil)
+    def self.handle_for_error(e, rcode=nil)
       rbody = decompress_error_body(e.response) if e.response
 
       if(rcode == 204)

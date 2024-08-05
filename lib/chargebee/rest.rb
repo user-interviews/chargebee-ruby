@@ -56,7 +56,7 @@ module ChargeBee
       end
 
       rheaders = response.headers
-      rbody = decompress_body(response)
+      rbody = response.body
 
       begin
         resp = JSON.parse(rbody)
@@ -74,7 +74,7 @@ module ChargeBee
     end
 
     def self.handle_for_error(e, rcode=nil, rbody=nil)
-      rbody = decompress_body(e.response) if e.response
+      rbody = decompress_error_body(e.response) if e.response
 
       if(rcode == 204)
         raise Error.new("No response returned by the chargebee api. The http status code is #{rcode}")
@@ -97,7 +97,7 @@ module ChargeBee
       end
     end
 
-    def self.decompress_body(response)
+    def self.decompress_error_body(response)
       encoding = response.headers[:content_encoding]
       body = response.body
 

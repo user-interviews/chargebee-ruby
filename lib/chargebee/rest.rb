@@ -57,7 +57,7 @@ module ChargeBee
       end
 
       rheaders = response.headers
-      rbody = response.body
+      rbody = decode_response_body(response)
 
       begin
         resp = JSON.parse(rbody)
@@ -75,9 +75,9 @@ module ChargeBee
     end
 
     def self.handle_for_error(e, rcode=nil)
-      rbody = decompress_error_body(e.response) if e.response
+      rbody = decode_response_body(e.response) if e.response
 
-      if(rcode == 204)
+      if (rcode == 204)
         raise Error.new("No response returned by the chargebee api. The http status code is #{rcode}")
       end
       begin
@@ -87,24 +87,33 @@ module ChargeBee
         raise Error.new("Error response not in JSON format. The http status code is #{rcode} \n #{rbody.inspect}", e)
       end
       type = error_obj[:type]
-      if("payment" == type)
+      if ("payment" == type)
         raise PaymentError.new(rcode, error_obj)
-      elsif("operation_failed" == type)
+      elsif ("operation_failed" == type)
         raise OperationFailedError.new(rcode, error_obj)
-      elsif("invalid_request" == type)
+      elsif ("invalid_request" == type)
         raise InvalidRequestError.new(rcode, error_obj)
       else
         raise APIError.new(rcode, error_obj)
       end
     end
 
-    def self.decompress_error_body(response)
+    def self.decode_response_body(response)
       encoding = response.headers[:content_encoding]
       body = response.body
 
-      case encoding
-      when 'gzip'
+      if (!body) || body.empty?
+        body
+      elsif encoding == 'gzip'
         Zlib::GzipReader.new(StringIO.new(body)).read
+      elsif encoding == 'deflate'
+        begin
+          Zlib::Inflate.new.inflate body
+        rescue Zlib::DataError
+          # No luck with Zlib decompression. Let's try with raw deflate,
+          # like some broken web servers do.
+          Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate body
+        end
       else
         body
       end

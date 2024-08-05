@@ -98,6 +98,9 @@ module ChargeBee
       end
     end
 
+    # rest_client 2.1 dropped support for custom handling of compression. This adds back the ability
+    # to gzip and deflate body responses.
+    # See https://github.com/rest-client/rest-client/blob/master/history.md#210 for more info
     def self.decode_response_body(response)
       encoding = response.headers[:content_encoding]
       body = response.body

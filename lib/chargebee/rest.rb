@@ -4,6 +4,7 @@ require 'zlib'
 
 module ChargeBee
   module Rest
+
     def self.request(method, url, env, params=nil, headers={})
       raise Error.new('No environment configured.') unless env
       api_key = env.api_key
@@ -31,7 +32,7 @@ module ChargeBee
         "User-Agent" => user_agent,
         :accept => :json,
         "Lang-Version" => RUBY_VERSION,
-        "OS-Version" => RUBY_PLATFORM,
+        "OS-Version" => RUBY_PLATFORM
         }.merge(headers)
       opts = {
         :method => method,
@@ -40,22 +41,20 @@ module ChargeBee
         :headers => headers,
         :payload => payload,
         :open_timeout => env.connect_timeout,
-        :timeout => env.read_timeout,
-        :raw_response => true
+        :timeout => env.read_timeout
         }.merge(ssl_opts)
 
       begin
         response = RestClient::Request.execute(opts)
       rescue RestClient::ExceptionWithResponse => e
         if rcode = e.http_code
-          raise handle_for_error(e, rcode)
+            raise handle_for_error(e, rcode)
         else
-          raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}", e)
+            raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}",e)
         end
       rescue Exception => e
-        raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}", e)
+            raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}",e)
       end
-
       rheaders = response.headers
       rbody = decode_response_body(response)
 
@@ -63,39 +62,39 @@ module ChargeBee
         resp = JSON.parse(rbody)
       rescue Exception => e
         if rbody.include? "503"
-          raise Error.new("Sorry, the server is currently unable to handle the request due to a temporary overload or scheduled maintenance. Please retry after sometime. \n type: internal_temporary_error, \n http_status_code: 503, \n error_code: internal_temporary_error,\n content: #{rbody.inspect}", e)
+            raise Error.new("Sorry, the server is currently unable to handle the request due to a temporary overload or scheduled maintenance. Please retry after sometime. \n type: internal_temporary_error, \n http_status_code: 503, \n error_code: internal_temporary_error,\n content: #{rbody.inspect}",e)
         elsif rbody.include? "504"
-          raise Error.new("The server did not receive a timely response from an upstream server, request aborted. If this problem persists, contact us at support@chargebee.com. \n type: gateway_timeout, \n http_status_code: 504, \n error_code: gateway_timeout,\n content:  #{rbody.inspect}", e)
+            raise Error.new("The server did not receive a timely response from an upstream server, request aborted. If this problem persists, contact us at support@chargebee.com. \n type: gateway_timeout, \n http_status_code: 504, \n error_code: gateway_timeout,\n content:  #{rbody.inspect}",e)
         else
-          raise Error.new("Sorry, something went wrong when trying to process the request. If this problem persists, contact us at support@chargebee.com. \n type: internal_error, \n http_status_code: 500, \n error_code: internal_error,\n content:  #{rbody.inspect}", e)
+            raise Error.new("Sorry, something went wrong when trying to process the request. If this problem persists, contact us at support@chargebee.com. \n type: internal_error, \n http_status_code: 500, \n error_code: internal_error,\n content:  #{rbody.inspect}",e)
         end
       end
       resp = Util.symbolize_keys(resp)
       return resp, rheaders
     end
 
-    def self.handle_for_error(e, rcode=nil)
+    def self.handle_for_error(e, rcode=nil, rbody=nil)
       rbody = decode_response_body(e.response) if e.response
-
-      if (rcode == 204)
+      if(rcode == 204)
         raise Error.new("No response returned by the chargebee api. The http status code is #{rcode}")
       end
       begin
         error_obj = JSON.parse(rbody)
         error_obj = Util.symbolize_keys(error_obj)
       rescue Exception => e
-        raise Error.new("Error response not in JSON format. The http status code is #{rcode} \n #{rbody.inspect}", e)
+        raise Error.new("Error response not in JSON format. The http status code is #{rcode} \n #{rbody.inspect}",e)
       end
       type = error_obj[:type]
-      if ("payment" == type)
+      if("payment" == type)
         raise PaymentError.new(rcode, error_obj)
-      elsif ("operation_failed" == type)
+      elsif("operation_failed" == type)
         raise OperationFailedError.new(rcode, error_obj)
-      elsif ("invalid_request" == type)
+      elsif("invalid_request" == type)
         raise InvalidRequestError.new(rcode, error_obj)
       else
         raise APIError.new(rcode, error_obj)
       end
+
     end
 
     # rest_client 2.1 dropped support for custom handling of compression. This adds back the ability
@@ -121,5 +120,6 @@ module ChargeBee
         body
       end
     end
+
   end
 end

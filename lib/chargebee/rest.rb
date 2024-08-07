@@ -4,11 +4,11 @@ require 'zlib'
 
 module ChargeBee
   module Rest
-
+    
     def self.request(method, url, env, params=nil, headers={})
       raise Error.new('No environment configured.') unless env
       api_key = env.api_key
-
+      
       if(ChargeBee.verify_ca_certs?)
         ssl_opts = {
           :verify_ssl => OpenSSL::SSL::VERIFY_PEER,
@@ -26,14 +26,14 @@ module ChargeBee
       else
         payload = params
       end
-
-      user_agent = ChargeBee.user_agent
-      headers = {
+        
+      user_agent = ChargeBee.user_agent 
+      headers = { 
         "User-Agent" => user_agent,
         :accept => :json,
         "Lang-Version" => RUBY_VERSION,
-        "OS-Version" => RUBY_PLATFORM
-        }.merge(headers)
+        "OS-Version" => RUBY_PLATFORM 
+        }.merge(headers)      
       opts = {
         :method => method,
         :url => env.api_url(url),
@@ -53,11 +53,10 @@ module ChargeBee
             raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}",e)
         end
       rescue Exception => e
-            raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}",e)
+            raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}",e)        
       end
       rheaders = response.headers
       rbody = decode_response_body(response)
-
       begin
         resp = JSON.parse(rbody)
       rescue Exception => e
@@ -73,7 +72,7 @@ module ChargeBee
       return resp, rheaders
     end
 
-    def self.handle_for_error(e, rcode=nil, rbody=nil)
+    def self.handle_for_error(e, rcode=nil)
       rbody = decode_response_body(e.response) if e.response
       if(rcode == 204)
         raise Error.new("No response returned by the chargebee api. The http status code is #{rcode}")
@@ -94,7 +93,6 @@ module ChargeBee
       else
         raise APIError.new(rcode, error_obj)
       end
-
     end
 
     # rest_client 2.1 dropped support for custom handling of compression. This adds back the ability

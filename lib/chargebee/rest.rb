@@ -1,5 +1,6 @@
 require 'rest_client'
 require 'json'
+require 'zlib'
 
 module ChargeBee
   module Rest
@@ -46,8 +47,8 @@ module ChargeBee
       begin
         response = RestClient::Request.execute(opts)
       rescue RestClient::ExceptionWithResponse => e
-        if rcode = e.http_code and rbody = e.http_body
-            raise handle_for_error(e, rcode, rbody)
+        if rcode = e.http_code
+            raise handle_for_error(e, rcode)
         else
             raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}",e)
         end
@@ -55,8 +56,7 @@ module ChargeBee
             raise IOError.new("IO Exception when trying to connect to chargebee with url #{opts[:url]} . Reason #{e}",e)        
       end
       rheaders = response.headers
-      rbody = response.body
-      rcode = response.code
+      rbody = decode_response_body(response)
       begin
         resp = JSON.parse(rbody)
       rescue Exception => e
@@ -71,8 +71,9 @@ module ChargeBee
       resp = Util.symbolize_keys(resp)
       return resp, rheaders
     end
-    
-    def self.handle_for_error(e, rcode=nil, rbody=nil)
+
+    def self.handle_for_error(e, rcode=nil)
+      rbody = decode_response_body(e.response) if e.response
       if(rcode == 204)
         raise Error.new("No response returned by the chargebee api. The http status code is #{rcode}")
       end
@@ -94,6 +95,30 @@ module ChargeBee
       end
       
     end
-    
+
+    # rest_client 2.1 dropped support for custom handling of compression. This adds back the ability
+    # to gzip and deflate body responses.
+    # See https://github.com/rest-client/rest-client/blob/master/history.md#210 for more info
+    def self.decode_response_body(response)
+      encoding = response.headers[:content_encoding]
+      body = response.body
+
+      if (!body) || body.empty?
+        body
+      elsif encoding == 'gzip'
+        Zlib::GzipReader.new(StringIO.new(body)).read
+      elsif encoding == 'deflate'
+        begin
+          Zlib::Inflate.new.inflate body
+        rescue Zlib::DataError
+          # No luck with Zlib decompression. Let's try with raw deflate,
+          # like some broken web servers do.
+          Zlib::Inflate.new(-Zlib::MAX_WBITS).inflate body
+        end
+      else
+        body
+      end
+    end
+
   end
 end

@@ -93,6 +93,7 @@ module ChargeBee
       else
         raise APIError.new(rcode, error_obj)
       end
+      
     end
 
     # rest_client 2.1 dropped support for custom handling of compression. This adds back the ability
